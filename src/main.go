@@ -4,10 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+
+	// "os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -45,7 +50,7 @@ func GetPeopleEndpoint(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	// Close the cursor later when function finishes
+	// Close the cursor later when function had finished
 	defer cursor.Close(ctx)
 
 	for cursor.Next(ctx) {
@@ -61,7 +66,7 @@ func GetPeopleEndpoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(people)
 }
 
-func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
+func GetPersonByIdEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	var person Person
 
@@ -80,15 +85,38 @@ func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
 }
 
 func main() {
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Printf("Can't load .env files")
+	}
 	fmt.Println("Running...")
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
-	client, _ = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-	collection = client.Database("emblema").Collection("people")
+	//get config
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8085"
+	}
+	dbString := os.Getenv("DB_STRING")
+	if dbString == "" {
+		dbString = "mongodb://localhost:27017"
+	}
 
+	url := ":" + port
+	fmt.Print(url)
+	//init connection
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbString))
+	if err != nil {
+		log.Fatal(err)
+	}
+	collection = client.Database("carie").Collection("drivers")
+
+	//setup router
 	router := mux.NewRouter()
-	router.HandleFunc("/insertPerson", AddPersonEndpoint).Methods("POST")
-	router.HandleFunc("/get", GetPeopleEndpoint).Methods("GET")
-	router.HandleFunc("/getOne", GetPersonEndpoint).Methods("GET")
-	http.ListenAndServe("localhost:12345", router)
+	router.HandleFunc("/person", AddPersonEndpoint).Methods("POST")
+	router.HandleFunc("/person", GetPeopleEndpoint).Methods("GET")
+	router.HandleFunc("/person/{id}", GetPersonByIdEndpoint).Methods("GET")
+
+	//serve
+	http.ListenAndServe(url, router)
 }
