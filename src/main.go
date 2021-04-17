@@ -4,10 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+
+	// "os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -39,7 +44,7 @@ func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
 	params := request.URL.Query()
 
-	if len(params) == 0 {
+	if len(params) == 1 {
 		var people []Person
 		ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
 		cursor, err := collection.Find(ctx, bson.M{})
@@ -126,15 +131,37 @@ func GetPersonEndpoint(response http.ResponseWriter, request *http.Request) {
 // }
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Printf("Can't load .env files: ")
+		log.Println(err)
+	}
 	fmt.Println("Running...")
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
-	client, _ = mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-	collection = client.Database("emblema").Collection("people")
+	//get config
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8085"
+	}
+	dbString := os.Getenv("DB_STRING")
+	if dbString == "" {
+		dbString = "mongodb://localhost:27017"
+	}
 
+	url := ":" + port
+	fmt.Print(url)
+	//init connection
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbString))
+	if err != nil {
+		log.Fatal(err)
+	}
+	collection = client.Database("carie").Collection("drivers")
+
+	//setup router
 	router := mux.NewRouter()
 	router.HandleFunc("/person", AddPersonEndpoint).Methods("POST")
 	router.HandleFunc("/person", GetPersonEndpoint).Methods("GET")
-	http.ListenAndServe("192.168.68.223:80", router)
+	http.ListenAndServe(url, router)
 	fmt.Println("Ending...")
 }
