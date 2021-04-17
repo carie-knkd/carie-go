@@ -271,7 +271,7 @@ func main() {
 	}
 
 	url := ":" + port
-	fmt.Print(url)
+	// fmt.Print(url)
 	//init connection
 	//ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
 	//client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbString))
@@ -285,6 +285,7 @@ func main() {
 	router.HandleFunc("/user", GetUserEndpoint).Methods("GET")
 	router.HandleFunc("/driver", AddDriverEndpoint).Methods("POST")
 	router.HandleFunc("/driver", GetDriverEndpoint).Methods("GET")
+	fmt.Println("Serving on: " + url)
 	http.ListenAndServe(url, router)
-	fmt.Println("Ending...")
+
 }
