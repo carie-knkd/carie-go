@@ -11,6 +11,7 @@ import (
 	// "os"
 	"time"
 
+	"github.com/emblemaa/Carie/src/model"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -47,6 +48,39 @@ type Schedule struct {
 type User struct {
 	PhoneNumber  string     `json:"phonenumber,omitempty" bson:"phonenumber,omitempty"`
 	ScheduleList []Schedule `json:"schedulelist,omitempty" bson:"schedulelist,omitempty"`
+}
+
+func GetProjectByName(response http.ResponseWriter, request *http.Request) {
+	response.Header().Add("content-type", "application/json")
+	var project model.Project
+	params := request.URL.Query()
+	dbString := os.Getenv("DB_STRING")
+	if dbString == "" {
+		dbString = "mongodb://localhost:27017"
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*10)
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(dbString))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	collection := client.Database("carie").Collection("tanbinh_location")
+
+	if len(params) != 0 {
+		name := params.Get("name")
+		err = collection.FindOne(ctx, model.Project{Name: name}).Decode(&project)
+		if err != nil {
+			response.WriteHeader(http.StatusInternalServerError)
+			response.Write([]byte("{message: " + err.Error() + "}"))
+			return
+		}
+		json.NewEncoder(response).Encode(project)
+		return
+	} else {
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte("{message: Cần cung cấp tên địa điểm" + "}"))
+	}
 }
 
 func AddDriverEndpoint(response http.ResponseWriter, request *http.Request) {
